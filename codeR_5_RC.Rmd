@@ -1,0 +1,135 @@
+---
+title: "Pemodelan Rantai Markov"
+author: "Kelompok 5 - RC"
+date: "2025-11-08"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+# Pemodelan Rantai Markov untuk Analisis Waktu Penyelesaian Tugas Akhir Mahasiswa Sains Data Berdasarkan Tahapan Seminar Proposal, Seminar Hasil, dan Sidang Akhir
+
+## Preprocessing
+
+### Load Data
+
+```{r}
+data <- read.csv("Dataset_5_RC.csv", sep=";")
+data
+```
+
+### Menghitung Jarak Sempro-Semhas dan Semhas-Sidang
+
+```{r}
+data$Sempro <- as.Date(data$Sempro, format = "%d/%m/%Y")
+data$Semhas <- as.Date(data$Semhas, format = "%d/%m/%Y")
+data$Sidang <- as.Date(data$Sidang, format = "%d/%m/%Y")
+```
+
+```{r}
+data$jarak_sempro_semhas <- as.numeric(difftime(data$Semhas, data$Sempro, units = "days"))
+
+data$jarak_semhas_sidang <- as.numeric(difftime(data$Sidang, data$Semhas, units = "days"))
+
+head(data)
+```
+
+### Penentuan Kuartil
+
+```{r}
+summary(data$jarak_sempro_semhas)
+summary(data$jarak_semhas_sidang)
+```
+
+```{r}
+sempro_semhas <- quantile(data$jarak_sempro_semhas, probs = c(0.25, 0.5, 0.75))
+semhas_sidang <- quantile(data$jarak_semhas_sidang, probs = c(0.25, 0.5, 0.75))
+sempro_semhas
+semhas_sidang
+```
+
+## Pemodelan Rantai Markov
+
+### Matriks Transisi
+
+```{r}
+sempro_semhas <- cut(data$jarak_sempro_semhas, 
+                     breaks = c(0, 113, 180, Inf), 
+                     labels = c("Cepat", "Sedang", "Lama"))
+
+semhas_sidang <- cut(data$jarak_semhas_sidang,
+                     breaks = c(0, 24, 52, Inf), 
+                     labels = c("Cepat", "Sedang", "Lama"))
+```
+
+```{r}
+transisi <- data.frame(
+  from = sempro_semhas,
+  to = semhas_sidang
+)
+
+transisi_table <- table(transisi$from, transisi$to)
+transisi_table
+```
+
+```{r}
+P <- prop.table(transisi_table, margin = 1)
+P
+```
+
+### Diagram Transisi
+
+```{r}
+library(igraph)
+g <- graph_from_adjacency_matrix(P > 0, mode = "directed")
+
+E(g)$label <- round(P[P > 0], 2)
+
+V(g)$color <- c("lightblue", "lightgreen", "tomato")
+V(g)$size <- 40
+
+plot(g,
+     edge.arrow.size = 0.3,
+     vertex.label.cex = 1.2,
+     main = "Diagram Transisi Rentang Waktu Seminar")
+```
+
+### Probabilitas n Langkah ke Depan
+
+```{r}
+initial <- c(1, 0, 0)  # 100% di Cepat
+
+# Perhitungan prediksi 1 tahap ke depan
+prediction <- initial %*% P
+prediction
+```
+
+```{r}
+initial <- c(0, 1, 0)
+initial %*% P
+```
+
+```{r}
+initial <- c(0, 0, 1)
+initial %*% P
+```
+
+```{r}
+P2 <- P %*% P
+P2
+```
+
+```{r}
+P3 <- P %*% P %*% P
+P3
+```
+
+### Distribusi Stasioner
+
+```{r}
+eig <- eigen(t(P))
+vec <- eig$vectors[,1]
+pi_stationer <- Re(vec / sum(vec)) 
+pi_stationer
+```
