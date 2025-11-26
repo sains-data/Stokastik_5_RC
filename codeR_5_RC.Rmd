@@ -133,3 +133,66 @@ vec <- eig$vectors[,1]
 pi_stationer <- Re(vec / sum(vec)) 
 pi_stationer
 ```
+#### Visualisasi Distribusi Stasioner
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+data_stasioner <- data.frame(
+  Kategori = colnames(P),
+  Probabilitas = as.numeric(pi_stationer)
+)
+
+# Menambahkan kolom Persentase untuk label
+data_stasioner$Persentase <- round(data_stasioner$Probabilitas * 100, 1)
+
+# Mengatur urutan level
+data_stasioner$Kategori <- factor(data_stasioner$Kategori, 
+                                  levels = c("Cepat", "Sedang", "Lama"))
+
+# Menentukan Palet Warna
+warna_kategori <- c("Cepat" = "#4DD0E1", 
+                    "Sedang" = "#81C784", 
+                    "Lama" = "#E57373")
+
+# PIE CHART
+pie_chart <- ggplot(data_stasioner, aes(x = "", y = Probabilitas, fill = Kategori)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = warna_kategori) +
+  theme_void() +
+  geom_text(aes(label = paste0(Persentase, "%")), 
+            position = position_stack(vjust = 0.5), 
+            color = "black", fontface = "bold", size = 5) +
+  labs(title = "Distribusi Stasioner Waktu Penyelesaian TA",
+       subtitle = "Probabilitas Jangka Panjang (Steady State)") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5))
+
+# Tampilkan Pie Chart
+print(pie_chart)
+
+# DONUT CHART (DIAGRAM CINCIN)
+data_stasioner <- data_stasioner %>%
+  arrange(desc(Kategori)) %>%
+  mutate(y_pos = cumsum(Probabilitas) - (0.5 * Probabilitas))
+
+donut_chart <- ggplot(data_stasioner, aes(x = 2, y = Probabilitas, fill = Kategori)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  xlim(0.5, 2.5) + # Membuat lubang di tengah (Donut effect)
+  scale_fill_manual(values = warna_kategori) +
+  theme_void() +
+  geom_text(aes(y = y_pos, label = paste0(Kategori, "\n", Persentase, "%")), 
+            color = "black", fontface = "bold", size = 4.5) +
+  annotate("text", x = 0.5, y = 0, label = "Steady\nState", 
+           fontface = "bold", color = "#1A237E", size = 6) + # Teks di tengah lubang
+  labs(title = "Distribusi Stasioner (Steady State)") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.position = "none") 
+        
+# Tampilkan Donut Chart
+print(donut_chart)
+```
